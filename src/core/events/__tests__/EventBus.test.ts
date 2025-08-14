@@ -92,4 +92,68 @@ describe('EventBus', () => {
     expect(onErrors.length).toBeGreaterThanOrEqual(1);
     expect(onErrors[0].eventType).toBe('Bar');
   });
+
+  test('invokes onError callback for sync throw and async rejection', async () => {
+    const errors: Array<{ error: unknown; eventType: string }> = [];
+    const bus = new EventBus<TestEvents>({ onError: (e) => errors.push(e) });
+
+    bus.subscribe('Foo', () => {
+      throw new Error('sync-error');
+    });
+    bus.subscribe('Foo', async () => {
+      return Promise.reject(new Error('async-error'));
+    });
+
+    await bus.publish({ id: 'x', type: 'Foo', timestamp: new Date(), data: { value: 0 } });
+
+    expect(errors.length).toBeGreaterThanOrEqual(2);
+    expect(errors.every((e) => e.eventType === 'Foo')).toBe(true);
+  });
+
+  test('error history capacity bounds stored error entries', async () => {
+    const bus = new EventBus<TestEvents>({ errorCapacity: 1 });
+
+    bus.subscribe('Bar', () => {
+      throw new Error('first');
+    });
+    await bus.publish({ id: '1', type: 'Bar', timestamp: new Date(), data: { text: 'a' } });
+
+    bus.subscribe('Bar', async () => {
+      return Promise.reject(new Error('second'));
+    });
+    await bus.publish({ id: '2', type: 'Bar', timestamp: new Date(), data: { text: 'b' } });
+
+    const errHist = bus.getErrorHistory();
+    expect(errHist).toHaveLength(1);
+    expect(errHist[0].eventType).toBe('Bar');
+  });
+
+  test('clearHistory removes all stored events', async () => {
+    const bus = new EventBus<TestEvents>({ historyCapacity: 10 });
+    await bus.publishTyped('Foo', { value: 1 });
+    await bus.publishTyped('Foo', { value: 2 });
+    expect(bus.getHistory().length).toBe(2);
+    bus.clearHistory();
+    expect(bus.getHistory().length).toBe(0);
+  });
+
+  test('publish waits for async handlers to complete', async () => {
+    const bus = new EventBus<TestEvents>();
+    let completed = false;
+    bus.subscribe('Foo', async () => {
+      await new Promise((r) => setTimeout(r, 5));
+      completed = true;
+    });
+    await bus.publishTyped('Foo', { value: 7 });
+    expect(completed).toBe(true);
+  });
+
+  test('getHistory returns a shallow copy, not a live reference', async () => {
+    const bus = new EventBus<TestEvents>({ historyCapacity: 5 });
+    await bus.publishTyped('Foo', { value: 10 });
+    const hist = bus.getHistory();
+    const lengthBefore = hist.length;
+    (hist as any).push({ bogus: true });
+    expect(bus.getHistory().length).toBe(lengthBefore);
+  });
 });
