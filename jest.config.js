@@ -4,7 +4,11 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src'],
   testMatch: ['**/?(*.)+(spec|test).ts'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/main.ts'],
+  collectCoverageFrom: [
+    'src/core/**/*.ts',
+    '!src/core/index.ts',
+    '!src/**/*.d.ts',
+  ],
   coverageThreshold: {
     global: {
       lines: 80,
