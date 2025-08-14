@@ -8,6 +8,7 @@ describe('StyleService - 3.3.1', () => {
     expect(d.colors.primary).toBeDefined();
     expect(d.fonts.heading).toBeDefined();
     expect(typeof d.rationale).toBe('string');
+    expect(d.modifiers).toBeDefined();
   });
 
   test('selects business theme for executive audience', () => {
