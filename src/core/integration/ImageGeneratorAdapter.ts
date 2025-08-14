@@ -19,6 +19,7 @@ export interface GeneratedImage {
   height: number;
   attribution?: ImageAttribution;
   promptUsed?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ImageGeneratorApi {
@@ -80,7 +81,13 @@ export class ImageGeneratorAdapter extends BaseAdapter {
     if (!Number.isFinite(image.width) || !Number.isFinite(image.height)) {
       throw new AdapterError('Invalid image dimensions', 'INVALID_RESPONSE', this.pluginInfo.id);
     }
-    return { ...image, promptUsed, attribution: this.normalizeAttribution(image.attribution) };
+    const enriched: GeneratedImage = {
+      ...image,
+      promptUsed,
+      attribution: this.normalizeAttribution(image.attribution),
+      metadata: { ...(image.metadata ?? {}), generatedAt: new Date().toISOString() },
+    };
+    return enriched;
   }
 
   // 4.3.2: Prompt engineering for slide context

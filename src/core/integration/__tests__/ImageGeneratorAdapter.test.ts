@@ -111,7 +111,8 @@ describe('ImageGeneratorAdapter - 4.3.3–4.3.8 batch, quality, fallback, error 
     const api: ImageGeneratorApi = {
       async generateImage(prompt) {
         calls += 1;
-        if (calls === 1) return { url: 'https://img', width: 100, height: 100, promptUsed: prompt } as any;
+        if (calls === 1)
+          return { url: 'https://img', width: 100, height: 100, promptUsed: prompt } as any;
         return { url: 'https://img', width: 1280, height: 720, promptUsed: prompt } as any;
       },
     };
@@ -210,14 +211,29 @@ describe('ImageGeneratorAdapter - 4.3.3–4.3.8 batch, quality, fallback, error 
     };
     const adapter = new ImageGeneratorAdapter(plugin, api, ctxCfg);
     const calls: Array<{ c: number; t: number }> = [];
-    const contexts: SlideImageContext[] = [
-      { topic: 'A' },
-      { topic: 'B' },
-      { topic: 'C' },
-    ];
+    const contexts: SlideImageContext[] = [{ topic: 'A' }, { topic: 'B' }, { topic: 'C' }];
     const images = await adapter.generateBatch(contexts, {}, (c, t) => calls.push({ c, t }));
     expect(images.length).toBe(3);
     expect(calls.length).toBe(3);
     expect(calls[calls.length - 1]).toEqual({ c: 3, t: 3 });
+  });
+
+  test('concurrent generateForSlide calls complete successfully (4.3.10)', async () => {
+    let active = 0;
+    let maxActive = 0;
+    const api: ImageGeneratorApi = {
+      async generateImage(prompt) {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((r) => setTimeout(r, 5));
+        active -= 1;
+        return { url: 'https://img', width: 1024, height: 576, promptUsed: prompt } as any;
+      },
+    };
+    const adapter = new ImageGeneratorAdapter(plugin, api, ctxCfg);
+    const tasks = Array.from({ length: 5 }, (_, i) => adapter.generateForSlide({ topic: `T${i}` }));
+    const images = await Promise.all(tasks);
+    expect(images.length).toBe(5);
+    expect(maxActive).toBeGreaterThanOrEqual(2);
   });
 });
