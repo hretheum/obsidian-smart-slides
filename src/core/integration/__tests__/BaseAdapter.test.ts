@@ -26,6 +26,7 @@ describe('BaseAdapter - 4.1.1', () => {
     const adapter = new TestAdapter(plugin, {
       circuitBreaker: { exec: async <T>(fn: () => Promise<T>) => fn() },
       retry: { exec: async <T>(fn: () => Promise<T>) => fn() },
+      rateLimiter: { schedule: async <T>(fn: () => Promise<T>) => fn() },
     });
     const result = await adapter.withResilience(async () => {
       called += 1;

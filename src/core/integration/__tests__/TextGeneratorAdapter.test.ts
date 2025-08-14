@@ -42,4 +42,26 @@ describe('TextGeneratorAdapter - 4.2', () => {
     expect(bullets.length).toBeGreaterThanOrEqual(2);
     expect(bullets.length).toBeLessThanOrEqual(5);
   });
+
+  test('outline validation fails on too few lines', async () => {
+    const badApi = {
+      async generate(prompt: string): Promise<string> {
+        if (prompt.includes('List 5-7')) return 'Only one line';
+        return 'ok';
+      },
+    };
+    const adapter = new TextGeneratorAdapter(plugin, badApi as any, ctx);
+    await expect(adapter.generateOutline('x')).rejects.toBeTruthy();
+  });
+
+  test('slide validation fails on fewer than 2 bullets', async () => {
+    const badApi = {
+      async generate(prompt: string): Promise<string> {
+        if (prompt.includes('Expand the point')) return 'single line';
+        return 'ok';
+      },
+    };
+    const adapter = new TextGeneratorAdapter(plugin, badApi as any, ctx);
+    await expect(adapter.generateSlide('t', 'k')).rejects.toBeTruthy();
+  });
 });
