@@ -40,7 +40,10 @@ export class CircuitBreaker {
 
   private readonly failureThreshold: number;
   private readonly halfOpenAfterMs: number;
-  private readonly onStateChange?: (previous: CircuitBreakerState, next: CircuitBreakerState) => void;
+  private readonly onStateChange?: (
+    previous: CircuitBreakerState,
+    next: CircuitBreakerState,
+  ) => void;
 
   /**
    * Create a CircuitBreaker.
@@ -48,10 +51,7 @@ export class CircuitBreaker {
    */
   constructor(failureThreshold?: number, halfOpenAfterMs?: number);
   constructor(options?: CircuitBreakerOptions);
-  constructor(
-    arg1?: number | CircuitBreakerOptions,
-    arg2?: number
-  ) {
+  constructor(arg1?: number | CircuitBreakerOptions, arg2?: number) {
     if (typeof arg1 === 'object') {
       const opts = arg1 as CircuitBreakerOptions;
       this.failureThreshold = opts.failureThreshold ?? 3;

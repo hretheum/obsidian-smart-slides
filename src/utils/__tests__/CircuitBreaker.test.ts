@@ -53,9 +53,11 @@ describe('CircuitBreaker', () => {
     });
 
     // failure opens
-    await expect(cb.execute(async () => {
-      throw new Error('x');
-    })).rejects.toThrow('x');
+    await expect(
+      cb.execute(async () => {
+        throw new Error('x');
+      }),
+    ).rejects.toThrow('x');
 
     const m1 = cb.getMetrics();
     expect(m1.state).toBe('OPEN');
