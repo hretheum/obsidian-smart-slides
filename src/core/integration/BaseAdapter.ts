@@ -20,6 +20,19 @@ export interface AdapterContext {
   };
   circuitBreaker?: { exec<T>(fn: () => Promise<T>): Promise<T> };
   retry?: { exec<T>(fn: () => Promise<T>): Promise<T> };
+  notifier?: { info: (m: string) => void; warn: (m: string) => void; error: (m: string) => void };
+}
+
+export class AdapterError extends Error {
+  readonly code: string;
+  readonly pluginId?: string;
+  constructor(message: string, code = 'ADAPTER_ERROR', pluginId?: string, cause?: unknown) {
+    super(message);
+    this.name = 'AdapterError';
+    this.code = code;
+    this.pluginId = pluginId;
+    if (cause) (this as any).cause = cause;
+  }
 }
 
 export abstract class BaseAdapter {
@@ -57,6 +70,7 @@ export abstract class BaseAdapter {
       return { status: ok ? 'healthy' : 'degraded', lastCheckedAt: new Date() };
     } catch (error) {
       this.context.logger?.error('Adapter health check failed', error as any);
+      this.context.notifier?.warn(`Adapter ${this.pluginInfo.id} unavailable: ${String(error)}`);
       return { status: 'unavailable', lastCheckedAt: new Date(), details: String(error) };
     }
   }
