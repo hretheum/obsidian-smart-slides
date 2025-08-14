@@ -1,0 +1,11 @@
+{
+  "id": "smart-slides",
+  "name": "Smart Slides",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "AI-powered presentation generator with zero configuration. Creates beautiful slides using Obsidian Slides Extended syntax.",
+  "author": "Your Name",
+  "authorUrl": "https://github.com/yourusername",
+  "fundingUrl": "https://github.com/sponsors/yourusername",
+  "isDesktopOnly": false
+}

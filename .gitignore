@@ -1,0 +1,41 @@
+# Node modules
+node_modules/
+
+# Build output
+main.js
+*.js.map
+
+# Development
+.DS_Store
+*.log
+*.tmp
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+coverage/
+*.test.js
+*.spec.js
+
+# Obsidian
+data.json
+.hotreload
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Distribution
+dist/
+*.zip
