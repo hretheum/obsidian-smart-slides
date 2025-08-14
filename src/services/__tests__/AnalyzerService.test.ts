@@ -65,4 +65,45 @@ describe('AnalyzerService', () => {
     expect(svc.analyze('therefore hence notwithstanding').tone).toBe('academic');
     expect(svc.analyze('lol guys this is awesome').tone).toBe('casual');
   });
+
+  test('3.1.10: comprehensive cases and edges', () => {
+    // empty input
+    const empty = svc.analyze('');
+    expect(empty.audience).toBe('general');
+    expect(empty.domain).toBe('general');
+    expect(empty.purpose).toBe('inform');
+    expect(empty.complexity).toBe('beginner');
+    expect(empty.suggestedSlideCount).toBe(3);
+    expect(empty.keyTopics.length).toBe(0);
+    expect(['formal', 'academic', 'business', 'casual']).toContain(empty.tone);
+
+    // stopwords are filtered out of key topics
+    const topics = svc.analyze('the the of of and and data data data science').keyTopics;
+    expect(topics[0].term).toBe('data');
+    expect(topics.find((t) => t.term === 'the')).toBeUndefined();
+
+    // business tone signal
+    expect(svc.analyze('Our ROI and stakeholder synergy align with the market roadmap').tone).toBe(
+      'business',
+    );
+
+    // domain defaults to general for non-domain text
+    expect(svc.analyze('Weather is nice today and birds sing').domain).toBe('general');
+
+    // slide suggestion clamps to max
+    const longAdvanced = svc.analyze(
+      'quantum neural optimization metric algorithm '.repeat(900),
+    ).suggestedSlideCount;
+    expect(longAdvanced).toBe(40);
+
+    // formality clamped 1..10
+    const veryFormal = svc.analyze(
+      'therefore thus hence moreover furthermore '.repeat(10),
+    ).formalityScore;
+    const veryCasual = svc.analyze(
+      "hey lol i'm gonna wanna kinda sorta ".repeat(10),
+    ).formalityScore;
+    expect(veryFormal).toBeLessThanOrEqual(10);
+    expect(veryCasual).toBeGreaterThanOrEqual(1);
+  });
 });

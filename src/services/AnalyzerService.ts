@@ -1,3 +1,6 @@
+/**
+ * Target audience categories detected from text.
+ */
 export type Audience = 'students' | 'executives' | 'technical' | 'general';
 export type Domain = 'technology' | 'business' | 'medicine' | 'education' | 'science' | 'general';
 export type Purpose = 'inform' | 'persuade' | 'educate' | 'inspire';
@@ -9,6 +12,9 @@ export interface KeyTopic {
   count: number;
 }
 
+/**
+ * Result of content analysis derived from a freeform text.
+ */
 export interface ContentAnalysis {
   audience: Audience;
   formalityScore: number; // 1-10
@@ -164,7 +170,14 @@ function detectTone(text: string): Tone {
   return 'formal';
 }
 
+/**
+ * Provides lightweight, heuristic-based content analysis suitable for on-device processing.
+ */
 export class AnalyzerService {
+  /**
+   * Analyze input text and return a structured `ContentAnalysis` summary.
+   * The heuristics are intentionally simple, fast, and deterministic.
+   */
   analyze(text: string): ContentAnalysis {
     const audience = detectAudience(text);
     const formalityScore = scoreFormality(text);
