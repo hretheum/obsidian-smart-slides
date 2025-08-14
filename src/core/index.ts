@@ -5,5 +5,6 @@
 
 // Export core domain types, services, and utilities here as they are implemented.
 export type { DomainEvent } from './events/DomainEvent';
+export { EventBus } from './events/EventBus';
 
 export {};
