@@ -22,6 +22,10 @@ export class SlideComposer {
     theme: ThemeDecision,
   ): Result<string[], Error> {
     try {
+      const validation = validateSlidesExtendedCompatibility();
+      if (!validation.ok) {
+        return err(validation.error);
+      }
       const slides: string[] = [];
       for (let i = 0; i < paragraphs.length; i += 1) {
         const p = safeText(paragraphs[i]);
@@ -68,6 +72,20 @@ export class SlideComposer {
     ];
     return `<!-- slide:class=${classes.join(' ')} -->`;
   }
+}
+
+function validateSlidesExtendedCompatibility(): Result<true, Error> {
+  // Minimal runtime guard to ensure required features are available in env
+  // 1) URL constructor for safeUrl
+  try {
+    // eslint-disable-next-line no-new
+    new URL('https://example.com/x.png');
+  } catch {
+    return err(
+      new Error('Environment lacks URL support required for Slides Extended compatibility'),
+    );
+  }
+  return ok(true as const);
 }
 
 function safeText(s: string): string {
