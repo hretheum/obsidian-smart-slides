@@ -30,8 +30,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Graphviz (for dependency graph)
-        run: sudo apt-get update && sudo apt-get install -y graphviz
+      # Optional: Graphviz for SVG graph; skip on lock contention
+      - name: Install Graphviz (optional)
+        run: |
+          sudo apt-get update || true
+          sudo apt-get install -y graphviz || echo "Graphviz install skipped"
 
       - name: Typecheck
         run: npm run typecheck
@@ -57,8 +60,13 @@ jobs:
       - name: Detect circular dependencies
         run: npm run deps:check
 
-      - name: Generate dependency graph (SVG)
-        run: npm run deps:graph
+      - name: Generate dependency graph (SVG if available)
+        run: |
+          if command -v dot >/dev/null 2>&1; then
+            npm run deps:graph
+          else
+            echo "Graphviz not available; skipping SVG graph generation"
+          fi
 
       - name: Generate dependency graph (JSON)
         run: npm run deps:json
