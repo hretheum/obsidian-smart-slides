@@ -21,6 +21,7 @@ export interface AdapterContext {
   circuitBreaker?: { exec<T>(fn: () => Promise<T>): Promise<T> };
   retry?: { exec<T>(fn: () => Promise<T>): Promise<T> };
   notifier?: { info: (m: string) => void; warn: (m: string) => void; error: (m: string) => void };
+  rateLimiter?: { schedule<T>(fn: () => Promise<T>): Promise<T> };
 }
 
 export class AdapterError extends Error {
@@ -55,7 +56,10 @@ export abstract class BaseAdapter {
       ? () => this.context.circuitBreaker!.exec(exec)
       : exec;
     const maybeRetry = this.context.retry ? () => this.context.retry!.exec(wrapped) : wrapped;
-    return maybeRetry();
+    const maybeLimited = this.context.rateLimiter
+      ? () => this.context.rateLimiter!.schedule(maybeRetry)
+      : maybeRetry;
+    return maybeLimited();
   }
 
   // Compatibility check (semantic version awareness can be added later)
