@@ -25,6 +25,8 @@ describe('PresentationOrchestrator - 5.1', () => {
     const percents = events.map((e) => e.percent);
     expect(Math.min(...percents)).toBeGreaterThanOrEqual(0);
     expect(Math.max(...percents)).toBe(100);
+    expect(result.value.metrics.durationMs).toBeGreaterThanOrEqual(0);
+    expect(Object.keys(result.value.metrics.steps).length).toBeGreaterThanOrEqual(3);
   });
 
   test('abort signal stops early', async () => {
@@ -51,5 +53,21 @@ describe('PresentationOrchestrator - 5.1', () => {
     });
     const res = await orch.generate({ rawMarkdown: text });
     expect(res.ok).toBe(true);
+  });
+
+  test('handles analyzer failure with fallback and logs', async () => {
+    class FailingAnalyzer extends AnalyzerService {
+      analyze(): any {
+        throw new Error('boom');
+      }
+    }
+    const logs: any[] = [];
+    const orch = new PresentationOrchestrator({
+      analyzer: new FailingAnalyzer(),
+      logger: { info: () => {}, warn: (m, c) => logs.push({ m, c }) } as any,
+    });
+    const res = await orch.generate({ rawMarkdown: text });
+    expect(res.ok).toBe(true);
+    expect(logs.find((l) => String(l.m).includes('analyze failed'))).toBeTruthy();
   });
 });

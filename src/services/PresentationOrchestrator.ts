@@ -19,6 +19,7 @@ export interface OrchestratorOutput {
   layoutDecisions: LayoutDecision[];
   theme: ThemeDecision;
   slides: string[]; // markdown per slide (placeholder for 5.2)
+  metrics: OrchestratorMetrics;
 }
 
 export interface OrchestratorMetrics {
@@ -34,7 +35,11 @@ export interface OrchestratorOptions {
   style?: StyleService;
   onProgress?: (p: OrchestratorProgress) => void;
   now?: () => number;
-  logger?: { info(msg: string, ctx?: Record<string, unknown>): void };
+  logger?: {
+    info(msg: string, ctx?: Record<string, unknown>): void;
+    warn?(msg: string, ctx?: Record<string, unknown>): void;
+    error?(msg: string, ctx?: Record<string, unknown>): void;
+  };
 }
 
 export class PresentationOrchestrator {
@@ -43,7 +48,14 @@ export class PresentationOrchestrator {
   private readonly style: StyleService;
   private readonly emit?: (p: OrchestratorProgress) => void;
   private readonly now: () => number;
-  private readonly logger?: { info(msg: string, ctx?: Record<string, unknown>): void };
+  private readonly logger?: {
+    info(msg: string, ctx?: Record<string, unknown>): void;
+    warn?(msg: string, ctx?: Record<string, unknown>): void;
+    error?(msg: string, ctx?: Record<string, unknown>): void;
+  };
+  private readonly analysisCache = new Map<string, ContentAnalysis>();
+  private readonly layoutsCache = new Map<string, LayoutDecision[]>();
+  // reserved for future external cancel API usage
 
   constructor(options: OrchestratorOptions = {}) {
     this.analyzer = options.analyzer ?? new AnalyzerService();
@@ -71,7 +83,17 @@ export class PresentationOrchestrator {
     try {
       report('analyzing', 5, 'Analyzing content');
       let t = startStep();
-      const analysis = this.analyzer.analyze(input.rawMarkdown);
+      const hash = hashString(input.rawMarkdown);
+      let analysis = this.analysisCache.get(hash);
+      if (!analysis) {
+        try {
+          analysis = this.analyzer.analyze(input.rawMarkdown);
+          this.analysisCache.set(hash, analysis);
+        } catch (e) {
+          this.logger?.warn?.('analyze failed, using fallback', { error: String(e) });
+          analysis = fallbackAnalysis(input.rawMarkdown);
+        }
+      }
       endStep('analyze', t);
       this.logger?.info('analyze completed', { ms: metrics.steps['analyze'] });
       this.checkAbort(input.abortSignal);
@@ -79,7 +101,30 @@ export class PresentationOrchestrator {
       report('layouting', 30, 'Selecting layouts');
       t = startStep();
       const paragraphs = splitIntoParagraphs(input.rawMarkdown);
-      const layoutDecisions = this.layout.optimizeFlow(this.layout.decideBatch(paragraphs));
+      let layoutDecisions = this.layoutsCache.get(hash);
+      if (!layoutDecisions) {
+        const perParagraph: LayoutDecision[] = [];
+        for (let i = 0; i < paragraphs.length; i += 1) {
+          this.checkAbort(input.abortSignal);
+          const p = paragraphs[i];
+          try {
+            perParagraph.push(this.layout.decide(p));
+          } catch (e) {
+            this.logger?.warn?.('layout decide failed, using default', {
+              index: i,
+              error: String(e),
+            });
+            perParagraph.push({
+              type: 'default',
+              params: { columns: 1, variant: 'center' },
+              rationale: 'fallback-default',
+              score: 0,
+            });
+          }
+        }
+        layoutDecisions = this.layout.optimizeFlow(perParagraph);
+        this.layoutsCache.set(hash, layoutDecisions);
+      }
       endStep('layout', t);
       this.logger?.info('layout completed', {
         ms: metrics.steps['layout'],
@@ -89,11 +134,28 @@ export class PresentationOrchestrator {
 
       report('styling', 55, 'Choosing theme');
       t = startStep();
-      const theme = this.style.decideFromAnalysis({
-        audience: analysis.audience,
-        domain: analysis.domain,
-        tone: analysis.tone,
-      });
+      let theme: ThemeDecision;
+      try {
+        theme = this.style.decideFromAnalysis({
+          audience: analysis.audience,
+          domain: analysis.domain,
+          tone: analysis.tone,
+        });
+      } catch (e) {
+        this.logger?.warn?.('style decide failed, using fallback theme', { error: String(e) });
+        theme = {
+          name: 'General Neutral',
+          colors: {
+            primary: '#4C7CF3',
+            secondary: '#A3B1DA',
+            background: '#FFFFFF',
+            text: '#1A1A1A',
+          },
+          fonts: { heading: 'Inter', body: 'Inter' },
+          rationale: 'fallback',
+          modifiers: { spacing: 'comfortable', emphasis: 'low', animations: 'none' },
+        };
+      }
       endStep('style', t);
       this.logger?.info('style completed', { ms: metrics.steps['style'], theme: theme.name });
       this.checkAbort(input.abortSignal);
@@ -112,8 +174,9 @@ export class PresentationOrchestrator {
       metrics.finishedAt = this.now();
       metrics.durationMs = metrics.finishedAt - metrics.startedAt;
 
-      return ok({ analysis, layoutDecisions, theme, slides });
+      return ok({ analysis, layoutDecisions, theme, slides, metrics });
     } catch (e) {
+      this.logger?.error?.('orchestrator failed', { error: String(e) });
       report('error', 100, (e as Error).message);
       return err(e as Error);
     }
@@ -136,4 +199,26 @@ function splitIntoParagraphs(md: string): string[] {
 function composePlaceholderSlides(paragraphs: string[]): string[] {
   // One-paragraph-per-slide placeholder; proper composing will be implemented in 5.2
   return paragraphs.slice(0, 20).map((p) => p);
+}
+
+function hashString(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = (hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24))) >>> 0;
+  }
+  return hash.toString(16);
+}
+
+function fallbackAnalysis(text: string): ContentAnalysis {
+  return {
+    audience: 'general',
+    formalityScore: 5,
+    domain: 'general',
+    purpose: 'inform',
+    complexity: 'beginner',
+    suggestedSlideCount: Math.max(3, Math.min(40, Math.round(text.split(/\s+/).length / 120))),
+    keyTopics: [],
+    tone: 'formal',
+  };
 }
