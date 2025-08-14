@@ -4,7 +4,6 @@
 */
 
 // Export core domain types, services, and utilities here as they are implemented.
-// Example:
-// export { PresentationOrchestrator } from "../services/presentation/PresentationOrchestrator";
+export { DomainEvent } from './events/DomainEvent';
 
 export {};
