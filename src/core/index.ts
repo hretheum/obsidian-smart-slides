@@ -12,3 +12,14 @@ export {
   type EventBusOptions,
   type EventBusErrorEntry,
 } from './events/EventBus';
+
+// Dependency Injection
+export {
+  DependencyContainer,
+  ServiceLifetime,
+  type ServiceFactory,
+  type ServiceName,
+  type RegistrationOptions,
+  CircularDependencyError,
+  ServiceNotRegisteredError,
+} from './DependencyContainer';
