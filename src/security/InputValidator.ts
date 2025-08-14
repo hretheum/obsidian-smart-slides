@@ -31,3 +31,41 @@ export function validateSafeFilename(name: string): Result<string> {
   }
   return ok(trimmed);
 }
+
+/**
+ * Very small and strict HTML sanitizer: strips all HTML tags and dangerous sequences.
+ * This is NOT a full HTML sanitizer, but is sufficient for plugin text inputs.
+ */
+export function sanitizePlainText(input: string): string {
+  // Remove HTML tags
+  let out = input.replace(/<[^>]*>/g, '');
+  // Neutralize common script protocol and event handler patterns
+  out = out
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+=/gi, '')
+    .replace(/srcdoc=/gi, '')
+    .replace(/data:text\/html/gi, '');
+  return out;
+}
+
+export function validateMaxLength(
+  input: string,
+  maxLen: number,
+  fieldName = 'input',
+): Result<string> {
+  const value = input ?? '';
+  if (value.length > maxLen) {
+    return err(new Error(`${fieldName} exceeds maximum length of ${maxLen}`));
+  }
+  return ok(value);
+}
+
+export function validateContentType(
+  allowedMimeTypes: ReadonlyArray<string>,
+  mimeType: string,
+): Result<string> {
+  if (!allowedMimeTypes.includes(mimeType)) {
+    return err(new Error(`Unsupported content type: ${mimeType}`));
+  }
+  return ok(mimeType);
+}
