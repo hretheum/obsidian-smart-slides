@@ -23,7 +23,12 @@
       "ES7"
     ],
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@core/*": ["src/core/*"],
+      "@services/*": ["src/services/*"],
+      "@ui/*": ["src/ui/*"],
+      "@types/*": ["src/types/*"],
+      "@security/*": ["src/security/*"]
     }
   },
   "include": [

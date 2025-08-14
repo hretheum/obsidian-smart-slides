@@ -7,6 +7,11 @@ module.exports = {
     ecmaVersion: 2020,
     sourceType: "module",
   },
+  settings: {
+    "import/resolver": {
+      node: { extensions: [".js", ".ts"] },
+    },
+  },
   env: {
     node: true,
     es2021: true,

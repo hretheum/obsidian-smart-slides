@@ -1,4 +1,4 @@
-import { Plugin } from 'obsidian';
+import { Plugin, Notice } from 'obsidian';
 
 export interface SmartSlidesSettings {
   lastUsedAt: number;
@@ -8,14 +8,45 @@ const DEFAULT_SETTINGS: SmartSlidesSettings = { lastUsedAt: 0 };
 
 export default class SmartSlidesPlugin extends Plugin {
   private settings: SmartSlidesSettings = DEFAULT_SETTINGS;
+  private ribbonEl: HTMLElement | null = null;
 
   async onload() {
     await this.loadSettings();
     await this.saveSettings();
+
+    this.addCommand({
+      id: 'smart-slides-generate-sample',
+      name: 'Generate sample presentation (validate input)',
+      callback: async () => {
+        const filename = 'Sample Presentation';
+        const validated = await this.validateAndNormalizeFilename(filename);
+        if (!validated.ok) {
+          new Notice(`Invalid filename: ${validated.error.message}`);
+          return;
+        }
+        new Notice(`OK: ${validated.value.path}`);
+      },
+    });
+
+    this.ribbonEl = this.addRibbonIcon(
+      'presentation',
+      'Smart Slides: Generate sample',
+      async () => {
+        const result = await this.validateAndNormalizeFilename('Sample Presentation');
+        if (!result.ok) {
+          new Notice(`Validation error: ${result.error.message}`);
+          return;
+        }
+        new Notice('Smart Slides ready');
+      }
+    );
   }
 
   async onunload() {
-    // noop for now: lifecycle hook used to cleanup resources later
+    if (this.ribbonEl?.parentElement) {
+      this.ribbonEl.parentElement.removeChild(this.ribbonEl);
+    }
+    this.ribbonEl = null;
   }
 
   private async loadSettings() {
@@ -25,5 +56,13 @@ export default class SmartSlidesPlugin extends Plugin {
   private async saveSettings() {
     // Intentionally unused for now; will be used in Task 1.5
     await this.saveData(this.settings);
+  }
+
+  private async validateAndNormalizeFilename(name: string) {
+    const { validateSafeFilename } = await import('./security/InputValidatorShim');
+    const { normalizeVaultRelativePath } = await import('./security/SecurePathShim');
+    const safe = validateSafeFilename(name);
+    if (!safe.ok) return safe;
+    return normalizeVaultRelativePath(`${safe.value}.md`);
   }
 }
