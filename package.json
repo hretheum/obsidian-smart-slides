@@ -21,6 +21,9 @@
     "validate:bundle-size": "node scripts/validate-bundle-size.mjs",
     "benchmark:basic": "node scripts/bench-basic.mjs",
     "ci:gates": "npm run typecheck && npm run lint:ci && npm run format:check && npm run test:ci && npm run validate:bundle-size && npm run benchmark:basic",
+    "deps:check": "madge --circular --extensions ts src",
+    "deps:graph": "madge --extensions ts --image dependency-graph.svg src",
+    "deps:json": "madge --extensions ts --json src > dependency-graph.json",
     "link-vault": "ln -s $(pwd) \"$1/.obsidian/plugins/smart-slides\"",
     "prepare": "husky"
   },
@@ -51,7 +54,8 @@
     "prettier": "^2.8.8",
     "ts-jest": "^29.1.0",
     "tslib": "2.4.0",
-    "typescript": "4.7.4"
+    "typescript": "^4.9.5",
+    "madge": "^6.0.0"
   },
   "dependencies": {
     "natural": "^6.10.0"

@@ -1,0 +1,27 @@
+{
+  "core/index.ts": [],
+  "main.ts": [
+    "security/InputValidatorShim.ts",
+    "security/SecurePathShim.ts",
+    "types/Result.ts",
+    "utils/CircuitBreaker.ts",
+    "utils/Logger.ts",
+    "utils/Retry.ts"
+  ],
+  "security/InputValidator.ts": [
+    "types/Result.ts"
+  ],
+  "security/InputValidatorShim.ts": [
+    "types/Result.ts"
+  ],
+  "security/SecureFileOperations.ts": [
+    "types/Result.ts"
+  ],
+  "security/SecurePathShim.ts": [
+    "types/Result.ts"
+  ],
+  "types/Result.ts": [],
+  "utils/CircuitBreaker.ts": [],
+  "utils/Logger.ts": [],
+  "utils/Retry.ts": []
+}
