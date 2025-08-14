@@ -156,4 +156,35 @@ describe('EventBus', () => {
     (hist as any).push({ bogus: true });
     expect(bus.getHistory().length).toBe(lengthBefore);
   });
+
+  test('sanitizeEvent is applied and its output is used for history and handlers', async () => {
+    const seen: Array<DomainEvent<'Foo', { value: number }>> = [];
+    const bus = new EventBus<TestEvents>({
+      historyCapacity: 10,
+      sanitizeEvent: (e) =>
+        ({
+          ...e,
+          data: (e.type === 'Foo' ? { value: (e as any).data.value * 2 } : e.data) as any,
+        } as any),
+    });
+
+    bus.subscribe('Foo', (e) => seen.push(e as any));
+    await bus.publish({ id: 's1', type: 'Foo', timestamp: new Date(), data: { value: 3 } });
+
+    expect(seen[0].data.value).toBe(6);
+    expect((bus.getHistory()[0] as any).data.value).toBe(6);
+  });
+
+  test('sanitizeEvent throwing is captured and does not block dispatch', async () => {
+    const calls: string[] = [];
+    const bus = new EventBus<TestEvents>({
+      sanitizeEvent: () => {
+        throw new Error('sanitize-failure');
+      },
+    });
+    bus.subscribe('Bar', () => calls.push('ok'));
+    await bus.publish({ id: 's2', type: 'Bar', timestamp: new Date(), data: { text: 'x' } });
+    expect(calls).toEqual(['ok']);
+    expect(bus.getErrorHistory().slice(-1)[0].eventType).toBe('Bar');
+  });
 });
