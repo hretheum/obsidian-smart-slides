@@ -1,4 +1,4 @@
-import { LayoutEngine, LayoutRule } from '../../services/LayoutEngine';
+import { LayoutEngine, LayoutRule, optimizeVisualFlow } from '../../services/LayoutEngine';
 
 describe('LayoutEngine - 3.2.1', () => {
   const titleRule: LayoutRule = {
@@ -43,10 +43,17 @@ describe('LayoutEngine - 3.2.1', () => {
     expect(ds[1].type).toBe('title');
   });
 
-  test('optimizeFlow currently identity (to be implemented later)', () => {
+  test('optimizeFlow alternates left/right for non-centered slides', () => {
     const engine = new LayoutEngine([titleRule]);
-    const inDecisions = [engine.decide('One'), engine.decide('# Two')];
-    const outDecisions = engine.optimizeFlow(inDecisions);
-    expect(outDecisions).toEqual(inDecisions);
+    const decs = [
+      { type: 'list', params: { variant: 'left' }, rationale: 'a', score: 1 },
+      { type: 'list', params: { variant: 'left' }, rationale: 'b', score: 1 },
+      { type: 'title', params: { variant: 'center' }, rationale: 'c', score: 1 },
+      { type: 'list', params: { variant: 'left' }, rationale: 'd', score: 1 },
+    ] as const;
+    const out = optimizeVisualFlow(decs as any);
+    expect(out[0].params.variant).toBe('left');
+    expect(out[1].params.variant).toBe('right');
+    expect(out[2].params.variant).toBe('center');
   });
 });
