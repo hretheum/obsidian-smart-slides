@@ -1,4 +1,9 @@
-import { DependencyContainer, ServiceLifetime, ServiceNotRegisteredError, CircularDependencyError } from '../DependencyContainer';
+import {
+  DependencyContainer,
+  ServiceLifetime,
+  ServiceNotRegisteredError,
+  CircularDependencyError,
+} from '../DependencyContainer';
 
 describe('DependencyContainer', () => {
   test('register and resolve transient service', () => {

@@ -1,21 +1,30 @@
 /**
- * Dependency Injection Container - Types and Registration Interfaces (2.2.1)
+ * Dependency Injection Container.
+ *
+ * - Supports singleton and transient lifecycles
+ * - Detects circular dependencies during resolution
+ * - Provides scoped containers that inherit registrations and singletons
  */
 
+/** Unique identifier for a service registration. */
 export type ServiceName = string;
 
+/** Service lifetime options. */
 export enum ServiceLifetime {
   Singleton = 'singleton',
   Transient = 'transient',
 }
 
+/** Factory function that produces a service instance. */
 export type ServiceFactory<T> = (container: DependencyContainer) => T;
 
+/** Options for registering a service. */
 export interface RegistrationOptions<T> {
   lifetime?: ServiceLifetime;
   factory: ServiceFactory<T>;
 }
 
+/** Internal representation of a registration. */
 export interface ServiceRegistration<T = unknown> {
   readonly name: ServiceName;
   readonly lifetime: ServiceLifetime;
@@ -44,10 +53,16 @@ export class DependencyContainer {
   /** Tracks current resolution path for circular dependency detection. */
   private readonly resolutionStack: ServiceName[] = [];
 
+  /**
+   * Creates a new container.
+   *
+   * @param parent - Optional parent container for scoped resolution
+   */
   constructor(parent?: DependencyContainer) {
     this.parent = parent;
   }
 
+  /** Registers a service factory under a name. */
   register<T>(name: ServiceName, options: RegistrationOptions<T>): void {
     const lifetime = options.lifetime ?? ServiceLifetime.Transient;
     const registration: ServiceRegistration<T> = {
@@ -58,6 +73,7 @@ export class DependencyContainer {
     this.nameToRegistration.set(name, registration);
   }
 
+  /** Registers a concrete singleton instance under the given name. */
   registerInstance<T>(name: ServiceName, instance: T): void {
     this.nameToRegistration.set(name, {
       name,
@@ -67,6 +83,7 @@ export class DependencyContainer {
     this.singletons.set(name, instance);
   }
 
+  /** Resolves a service instance by name. */
   resolve<T>(name: ServiceName): T {
     const registration = this.getRegistration(name);
     if (!registration) {
@@ -85,14 +102,17 @@ export class DependencyContainer {
     return this.createWithCycleDetection(name, registration.factory) as T;
   }
 
+  /** Returns true when a service is registered locally or in parent scopes. */
   isRegistered(name: ServiceName): boolean {
     return this.nameToRegistration.has(name) || (!!this.parent && this.parent.isRegistered(name));
   }
 
+  /** Creates a child container that inherits registrations and singletons by reference. */
   createScope(): DependencyContainer {
     return new DependencyContainer(this);
   }
 
+  /** Clears all local registrations and singleton instances. */
   clear(): void {
     this.nameToRegistration.clear();
     this.singletons.clear();
