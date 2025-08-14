@@ -1,5 +1,6 @@
 import { LayoutDecision } from './LayoutEngine';
 import { ThemeDecision } from './StyleService';
+import { normalizeVaultRelativePath } from '../security/SecureFileOperations';
 import { Result, ok, err } from '../types/Result';
 
 export type LayoutKind = 'title' | 'content' | 'split' | 'image-focus' | 'comparison';
@@ -95,10 +96,15 @@ function renderQuote(text: string): string {
 function renderImage(text: string, decision: LayoutDecision): string {
   const images = (decision.params.images ?? []).filter(Boolean);
   if (images.length > 0) {
-    return images.map((src) => `![](${src})`).join('\n');
+    const refs = images.map((src) => safeImageRef(src)).filter((s) => s.length > 0);
+    return refs.map((src) => `![](${src})`).join('\n');
   }
   const firstUrl = (/(https?:\/\/\S+\.(?:png|jpe?g|gif|svg))/i.exec(text) || [])[0];
-  return firstUrl ? `![](${firstUrl})` : renderContent(text, 10);
+  if (firstUrl) {
+    const ref = safeImageRef(firstUrl);
+    return ref ? `![](${ref})` : renderContent(text, 10);
+  }
+  return renderContent(text, 10);
 }
 
 function renderList(text: string, maxLines: number): string {
@@ -113,7 +119,10 @@ function renderContent(text: string, maxLines: number): string {
 }
 
 function escapeMd(s: string): string {
-  return s.replace(/[\*_`\[\]<>]/g, (c) => `\\${c}`);
+  return s
+    .normalize('NFC')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/[\*_`\[\]<>]/g, (c) => `\\${c}`);
 }
 
 function slug(s: string): string {
@@ -121,4 +130,22 @@ function slug(s: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
+}
+
+function safeUrl(src: string): string {
+  try {
+    const u = new URL(src);
+    if (!/^https?:$/.test(u.protocol)) return '';
+    return `${u.protocol}//${u.host}${u.pathname}${u.search}`;
+  } catch {
+    return '';
+  }
+}
+
+function safeImageRef(src: string): string {
+  // URLs -> sanitize; otherwise treat as vault-relative path and validate
+  if (/^https?:\/\//i.test(src)) return safeUrl(src);
+  const normalized = normalizeVaultRelativePath(src);
+  if (!normalized.ok) return '';
+  return normalized.value.path;
 }
