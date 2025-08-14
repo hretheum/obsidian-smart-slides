@@ -13,7 +13,7 @@ When user types this command, execute following steps:
 
 #### Workflow for Task-Level Execution:
 1. **Task Discovery Phase**:
-   - Search for Task <level 1.*> in Kanban board `/Users/hretheum/dev/bezrobocie/vector-wave/vector wave/kanban/obsidian-plugin.md`
+   - Search for Task <level 1.*> in Kanban board `/Users/hretheum/dev/obsidian-vault/kanban/obsidian-plugin.md`
    - Priority: `in progress` column → `todo/backlog` → any column (except `done` and `archive`)
    - Load task details from `TASK_VALIDATION_CRITERIA.md` if needed
 
@@ -53,6 +53,90 @@ When user types this command, execute following steps:
 - Follow Clean Architecture principles
 - Use TypeScript with strict mode
 - Implement comprehensive testing strategy
+
+## NPM Scripts Reference
+
+- `typecheck`: Run TypeScript type checking with no emit
+- `dev`: Run development build (esbuild)
+- `build`: Typecheck then production build (esbuild)
+- `version`: Bump manifest version and stage files
+- `test`: Run Jest (pass with no tests locally)
+- `test:ci`: Run Jest with coverage in CI
+- `test:watch`: Watch mode for Jest
+- `test:coverage`: Generate coverage report
+- `lint`: Run ESLint for .ts files
+- `lint:ci`: ESLint with zero warnings allowed
+- `lint:fix`: Autofix ESLint issues
+- `format`: Prettier write for `src/**/*.ts`
+- `format:check`: Prettier check for `src/**/*.ts`
+- `security:audit`: npm audit (high+) non-failing
+- `validate:bundle-size`: Validate bundle size budget
+- `benchmark:basic`: Run basic performance benchmarks
+- `ci:gates`: Aggregate gates: typecheck, lint, format:check, test:ci, bundle-size, benchmarks
+- `deps:check`: Detect circular dependencies (madge)
+- `deps:graph`: Generate dependency graph SVG (requires Graphviz)
+- `deps:json`: Generate dependency graph JSON
+
+## Folder Structure Overview
+
+```
+src/
+  core/
+    events/
+  security/
+  services/
+  types/
+  ui/
+  utils/
+```
+- Respect Clean Architecture boundaries enforced by ESLint import rules
+- Export public APIs from `src/core/index.ts`
+
+## Development Workflow
+
+1. Create a branch from `main`
+2. Implement changes with TypeScript strict mode and Result<T> patterns
+3. Run locally: `npm run ci:gates`
+4. Commit with conventional commit message
+5. Push and open PR; ensure CI and CodeQL are green
+6. Request 1 approving review (branch protection requires it)
+
+## Troubleshooting
+
+- Prettier failures: run `npm run format`
+- ESLint failures: run `npm run lint:fix`
+- CI failing on Graphviz: ensure Graphviz is installed locally or rely on CI step
+- Jest coverage: add tests under `src/**/__tests__` or `*.test.ts`
+
+## Testing Procedures
+
+- Unit tests with Jest and ts-jest; coverage threshold set to 80% global
+- Place tests with `*.test.ts` or `*.spec.ts` under `src/`
+- Run locally: `npm test` or `npm run test:coverage`
+- Security tests: add cases per `docs/SECURITY_GUIDELINES.md`
+
+## Architecture Decisions & References
+
+- Governance: `docs/PROJECT_GOVERNANCE.md`
+- Code Standards: `docs/CODE_STANDARDS.md`
+- Error Handling: `docs/ERROR_HANDLING_STANDARDS.md`
+- Testing Strategy: `docs/TESTING_STRATEGY.md`
+- Performance Benchmarks: `docs/PERFORMANCE_BENCHMARKS.md`
+- LLM Guardrails: `docs/LLM_DEVELOPMENT_GUARDRAILS.md`
+
+## LLM Guardrails & Governance
+
+- Follow prompt safety rules and output sanitization per `docs/LLM_DEVELOPMENT_GUARDRAILS.md`
+- Enforce Result<T> and safe path handling per `docs/SECURITY_GUIDELINES.md`
+
+## Code Review Checklist & Quality Gates
+
+- Zero ESLint errors; no warnings in CI
+- TypeScript typecheck passes
+- Prettier formatting enforced
+- Tests green with coverage meeting thresholds
+- No circular dependencies (madge)
+- CI and CodeQL must be green before merge
 
 ## Development Standards
 - All commits must follow conventional commit format
