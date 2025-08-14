@@ -58,8 +58,13 @@ export class SlideComposer {
   }
 
   private renderHeader(theme: ThemeDecision): string {
-    const cls = `theme-${slug(theme.name)}`;
-    return `<!-- slide:class=${cls} -->`;
+    const classes = [
+      `theme-${slug(theme.name)}`,
+      `spacing-${theme.modifiers.spacing}`,
+      `emphasis-${theme.modifiers.emphasis}`,
+      `anim-${theme.modifiers.animations}`,
+    ];
+    return `<!-- slide:class=${classes.join(' ')} -->`;
   }
 }
 
