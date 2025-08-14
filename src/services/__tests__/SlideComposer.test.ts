@@ -42,4 +42,41 @@ describe('SlideComposer - 5.2', () => {
     if (!res.ok) return;
     expect(res.value[0]).toContain('\\*');
   });
+
+  test('adds theme classes and allows transitions', () => {
+    const paragraphs = ['A default slide with transition'];
+    const layout = createDefaultLayoutEngine();
+    const decisions = layout
+      .decideBatch(paragraphs)
+      .map((d) => ({ ...d, params: { ...d.params, variant: 'fade' } }));
+    const theme = new StyleService().decideFromAnalysis({
+      audience: 'general',
+      domain: 'general',
+      tone: 'formal',
+    });
+    const composer = new SlideComposer();
+    const res = composer.composeSlides(paragraphs, decisions, theme);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const out = res.value.join('\n');
+    expect(out).toMatch(/<!-- slide:class=theme-/);
+    expect(out).toMatch(/data-transition=fade/);
+  });
+
+  test('sanitizes image refs and vault paths', () => {
+    const paragraphs = ['![](../../etc/passwd)'];
+    const layout = createDefaultLayoutEngine();
+    const decisions = layout.decideBatch(paragraphs).map((d) => ({ ...d, type: 'image' as const }));
+    const theme = new StyleService().decideFromAnalysis({
+      audience: 'general',
+      domain: 'general',
+      tone: 'formal',
+    });
+    const composer = new SlideComposer();
+    const res = composer.composeSlides(paragraphs, decisions, theme);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const out = res.value[0];
+    expect(out).not.toContain('..');
+  });
 });
