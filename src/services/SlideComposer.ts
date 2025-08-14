@@ -52,8 +52,10 @@ export class SlideComposer {
         return `${header}\n---\n${renderImage(text, decision)}`;
       case 'list':
         return `${header}\n---\n${renderList(text, this.maxLines)}`;
+      // 5.2.7: support basic transition markers via decision.params.variant
+      // Using Slides Extended data attribute in HTML comment
       default:
-        return `${header}\n---\n${renderContent(text, this.maxLines)}`;
+        return `${header}${renderTransition(decision)}\n---\n${renderContent(text, this.maxLines)}`;
     }
   }
 
@@ -153,4 +155,15 @@ function safeImageRef(src: string): string {
   const normalized = normalizeVaultRelativePath(src);
   if (!normalized.ok) return '';
   return normalized.value.path;
+}
+
+function renderTransition(decision: LayoutDecision): string {
+  const variant = decision.params.variant;
+  if (!variant) return '';
+  // allow a limited set of transitions only
+  const allowed = new Set(['fade', 'slide', 'convex', 'concave', 'zoom']);
+  if (typeof variant === 'string' && allowed.has(variant)) {
+    return `\n<!-- slide:data-transition=${variant} -->`;
+  }
+  return '';
 }
