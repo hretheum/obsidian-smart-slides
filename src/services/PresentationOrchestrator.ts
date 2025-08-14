@@ -2,6 +2,7 @@ import { AnalyzerService, ContentAnalysis } from './AnalyzerService';
 import { createDefaultLayoutEngine, LayoutDecision, LayoutEngine } from './LayoutEngine';
 import { StyleService, ThemeDecision } from './StyleService';
 import { Result, ok, err } from '../types/Result';
+import { SlideComposer } from './SlideComposer';
 
 export interface OrchestratorInput {
   rawMarkdown: string;
@@ -160,10 +161,15 @@ export class PresentationOrchestrator {
       this.logger?.info('style completed', { ms: metrics.steps['style'], theme: theme.name });
       this.checkAbort(input.abortSignal);
 
-      // 5.1.1–5.1.2 pipeline stops here; composing is placeholder until 5.2
+      // 5.2: Compose slides using SlideComposer (basic)
       report('composing', 80, 'Preparing slides');
       t = startStep();
-      const slides = composePlaceholderSlides(paragraphs);
+      const composer = new SlideComposer({ maxLinesPerSlide: 20 });
+      const composed = composer.composeSlides(paragraphs, layoutDecisions, theme);
+      if (!composed.ok) {
+        throw composed.error;
+      }
+      const slides = composed.value;
       endStep('compose', t);
       this.logger?.info('compose completed', {
         ms: metrics.steps['compose'],
@@ -194,11 +200,6 @@ function splitIntoParagraphs(md: string): string[] {
     .split(/\n{2,}/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-}
-
-function composePlaceholderSlides(paragraphs: string[]): string[] {
-  // One-paragraph-per-slide placeholder; proper composing will be implemented in 5.2
-  return paragraphs.slice(0, 20).map((p) => p);
 }
 
 function hashString(input: string): string {
