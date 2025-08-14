@@ -1,4 +1,8 @@
 import { Plugin, Notice } from 'obsidian';
+import { isOk } from './types/Result';
+import { CircuitBreaker } from './utils/CircuitBreaker';
+import { withRetry } from './utils/Retry';
+import { Logger } from './utils/Logger';
 
 export interface SmartSlidesSettings {
   lastUsedAt: number;
@@ -9,6 +13,8 @@ const DEFAULT_SETTINGS: SmartSlidesSettings = { lastUsedAt: 0 };
 export default class SmartSlidesPlugin extends Plugin {
   private settings: SmartSlidesSettings = DEFAULT_SETTINGS;
   private ribbonEl: HTMLElement | null = null;
+  private breaker = new CircuitBreaker();
+  private log = new Logger('SmartSlides');
 
   async onload() {
     await this.loadSettings();
@@ -20,10 +26,17 @@ export default class SmartSlidesPlugin extends Plugin {
       callback: async () => {
         const filename = 'Sample Presentation';
         const validated = await this.validateAndNormalizeFilename(filename);
-        if (!validated.ok) {
+        if (!isOk(validated)) {
+          this.log.warn(`Invalid filename: ${validated.error.message}`);
           new Notice(`Invalid filename: ${validated.error.message}`);
           return;
         }
+        await this.breaker.execute(async () => {
+          await withRetry(async () => {
+            // Placeholder future IO; currently just success path
+            this.log.info(`Validated path: ${validated.value.path}`);
+          });
+        });
         new Notice(`OK: ${validated.value.path}`);
       },
     });
@@ -38,7 +51,7 @@ export default class SmartSlidesPlugin extends Plugin {
           return;
         }
         new Notice('Smart Slides ready');
-      }
+      },
     );
   }
 

@@ -1,6 +1,8 @@
 import { Result, ok, err } from '../types/Result';
 
-export interface SafePath { path: string }
+export interface SafePath {
+  path: string;
+}
 
 export function normalizeVaultRelativePath(candidate: string): Result<SafePath> {
   const trimmed = candidate.trim();
