@@ -4,13 +4,30 @@ import { DomainEvent, EventHandler } from './DomainEvent';
  * EventBus provides simple in-memory publish/subscribe mechanics with
  * error isolation between handlers and parallel dispatch.
  */
+export interface EventBusOptions {
+  historyCapacity?: number;
+  errorCapacity?: number;
+  onError?: (params: { error: unknown; eventType: string }) => void;
+}
+
+export interface EventBusErrorEntry {
+  readonly eventType: string;
+  readonly error: unknown;
+  readonly timestamp: Date;
+}
+
 export class EventBus<TEvents extends Record<string, unknown> = Record<string, unknown>> {
   private readonly typeToHandlers: Map<keyof TEvents & string, EventHandler[]> = new Map();
   private readonly eventHistory: DomainEvent<keyof TEvents & string, unknown>[] = [];
+  private readonly errorHistory: EventBusErrorEntry[] = [];
   private readonly historyCapacity: number;
+  private readonly errorCapacity: number;
+  private readonly onError?: (params: { error: unknown; eventType: string }) => void;
 
-  constructor(options?: { historyCapacity?: number }) {
+  constructor(options?: EventBusOptions) {
     this.historyCapacity = Math.max(0, options?.historyCapacity ?? 200);
+    this.errorCapacity = Math.max(0, options?.errorCapacity ?? 100);
+    this.onError = options?.onError;
   }
 
   subscribe<TType extends keyof TEvents & string, TPayload extends TEvents[TType]>(
@@ -44,10 +61,11 @@ export class EventBus<TEvents extends Record<string, unknown> = Record<string, u
     const handlers = this.typeToHandlers.get(event.type) ?? [];
     const executions = handlers.map((h) => {
       try {
-        return Promise.resolve(h(event));
+        return Promise.resolve(h(event)).catch((error) => {
+          this.recordHandlerError(event.type as string, error);
+        });
       } catch (error) {
-        // Error isolation: do not break other handlers
-        console.error(`[EventBus] Handler threw for ${event.type}:`, error);
+        this.recordHandlerError(event.type as string, error);
         return Promise.resolve();
       }
     });
@@ -78,6 +96,35 @@ export class EventBus<TEvents extends Record<string, unknown> = Record<string, u
   /** Clears the stored event history. */
   clearHistory(): void {
     this.eventHistory.length = 0;
+  }
+
+  /** Returns a shallow copy of the recent handler error entries (most recent last). */
+  getErrorHistory(): ReadonlyArray<EventBusErrorEntry> {
+    return [...this.errorHistory];
+  }
+
+  private recordHandlerError(eventType: string, error: unknown): void {
+    // Log and store
+    // Do not allow this method to throw
+    try {
+      // eslint-disable-next-line no-console
+      console.error(`[EventBus] Handler error for ${eventType}:`, error);
+      if (this.errorCapacity > 0) {
+        this.errorHistory.push({ eventType, error, timestamp: new Date() });
+        if (this.errorHistory.length > this.errorCapacity) {
+          this.errorHistory.shift();
+        }
+      }
+      if (this.onError) {
+        try {
+          this.onError({ error, eventType });
+        } catch {
+          // Never propagate onError failures
+        }
+      }
+    } catch {
+      // Swallow any unexpected issues to preserve isolation
+    }
   }
 }
 

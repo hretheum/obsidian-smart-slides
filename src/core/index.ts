@@ -5,4 +5,10 @@
 
 // Export core domain types, services, and utilities here as they are implemented.
 export type { DomainEvent, EventHandler } from './events/DomainEvent';
-export { EventBus, DomainEvents, type DomainEventNames } from './events/EventBus';
+export {
+  EventBus,
+  DomainEvents,
+  type DomainEventNames,
+  type EventBusOptions,
+  type EventBusErrorEntry,
+} from './events/EventBus';

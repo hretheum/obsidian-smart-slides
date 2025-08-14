@@ -66,4 +66,30 @@ describe('EventBus', () => {
     expect((hist[0] as any).data.value).toBe(2);
     expect((hist[1] as any).data.value).toBe(3);
   });
+
+  test('async handler rejection is isolated and recorded in error history', async () => {
+    const onErrors: Array<{ error: unknown; eventType: string }> = [];
+    const bus = new EventBus<TestEvents>({ errorCapacity: 5, onError: (e) => onErrors.push(e) });
+
+    const calls: string[] = [];
+    bus.subscribe('Bar', async () => {
+      calls.push('ok-async-1');
+    });
+    bus.subscribe('Bar', async () => {
+      calls.push('will-reject');
+      return Promise.reject(new Error('async-boom'));
+    });
+    bus.subscribe('Bar', async () => {
+      calls.push('ok-async-2');
+    });
+
+    await bus.publishTyped('Bar', { text: 'hello' });
+
+    expect(calls).toEqual(expect.arrayContaining(['ok-async-1', 'will-reject', 'ok-async-2']));
+    const errHist = bus.getErrorHistory();
+    expect(errHist.length).toBeGreaterThanOrEqual(1);
+    expect(errHist[errHist.length - 1].eventType).toBe('Bar');
+    expect(onErrors.length).toBeGreaterThanOrEqual(1);
+    expect(onErrors[0].eventType).toBe('Bar');
+  });
 });
