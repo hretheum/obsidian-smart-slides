@@ -153,6 +153,14 @@ class SmartSlidesSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     containerEl.createEl('h2', { text: 'Smart Slides Settings' });
+    const searchWrap = containerEl.createEl('div', { cls: 'smart-slides-settings-search' });
+    const searchInput = searchWrap.createEl('input', {
+      type: 'search',
+      attr: { placeholder: 'Search settings…', 'aria-label': 'Search settings' },
+    });
+    searchInput.addEventListener('input', () =>
+      this.filterSettings(containerEl, searchInput.value),
+    );
     this.renderGeneralSection(containerEl);
     this.renderControlsSection(containerEl);
   }
@@ -200,7 +208,12 @@ class SmartSlidesSettingTab extends PluginSettingTab {
           t.setValue(String(this.plugin.settings.maxSlides));
           await this.plugin.saveSettings();
         });
-      });
+      })
+      .addExtraButton((b) =>
+        b
+          .setIcon('help')
+          .setTooltip('Generator will not exceed this bound; actual count depends on content.'),
+      );
 
     new Setting(containerEl)
       .setName('Safe mode')
@@ -219,6 +232,7 @@ class SmartSlidesSettingTab extends PluginSettingTab {
       .setDesc('Reset all settings to default values (confirmation required).')
       .addButton((b) => {
         b.setButtonText('Reset to defaults');
+        b.setTooltip('Revert every option to its original value');
         b.onClick(async () => {
           const confirmed = confirm('Reset Smart Slides settings to defaults?');
           if (!confirmed) return;
@@ -233,6 +247,7 @@ class SmartSlidesSettingTab extends PluginSettingTab {
       .setDesc('Copy current settings as JSON to clipboard.')
       .addButton((b) => {
         b.setButtonText('Export JSON');
+        b.setTooltip('Copy current settings to clipboard as JSON');
         b.onClick(async () => {
           const json = JSON.stringify(this.plugin.settings, null, 2);
           await navigator.clipboard.writeText(json);
@@ -259,5 +274,15 @@ class SmartSlidesSettingTab extends PluginSettingTab {
           }
         });
       });
+  }
+
+  private filterSettings(containerEl: HTMLElement, query: string): void {
+    const normalized = query.trim().toLowerCase();
+    const items = containerEl.querySelectorAll('.setting-item');
+    items.forEach((el) => {
+      const text = el.textContent?.toLowerCase() ?? '';
+      (el as HTMLElement).style.display =
+        normalized === '' || text.includes(normalized) ? '' : 'none';
+    });
   }
 }
