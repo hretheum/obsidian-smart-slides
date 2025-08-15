@@ -12,6 +12,9 @@ export interface SmartSlidesSettings {
   defaultTheme: 'business' | 'technical' | 'academic' | 'creative';
   maxSlides: number; // 5..200
   safeMode: boolean;
+  // UX & Onboarding
+  hasCompletedOnboarding: boolean;
+  onboardingVersion: number;
 }
 
 const DEFAULT_SETTINGS: SmartSlidesSettings = {
@@ -20,6 +23,8 @@ const DEFAULT_SETTINGS: SmartSlidesSettings = {
   defaultTheme: 'business',
   maxSlides: 40,
   safeMode: true,
+  hasCompletedOnboarding: false,
+  onboardingVersion: 1,
 };
 
 export default class SmartSlidesPlugin extends Plugin {
@@ -27,12 +32,15 @@ export default class SmartSlidesPlugin extends Plugin {
   private ribbonEl: HTMLElement | null = null;
   private breaker = new CircuitBreaker();
   private log = new Logger('SmartSlides');
+  private static readonly ONBOARDING_VERSION = 1;
 
   async onload() {
     await this.loadSettings();
     await this.saveSettings();
 
     this.addSettingTab(new SmartSlidesSettingTab(this.app, this));
+
+    await this.maybeShowOnboarding();
 
     this.addCommand({
       id: 'smart-slides-generate-sample',
@@ -90,6 +98,12 @@ export default class SmartSlidesPlugin extends Plugin {
         new Notice('Smart Slides ready');
       },
     );
+
+    this.addCommand({
+      id: 'smart-slides-open-onboarding',
+      name: 'Open onboarding',
+      callback: async () => this.openOnboarding(),
+    });
   }
 
   async onunload() {
@@ -111,22 +125,58 @@ export default class SmartSlidesPlugin extends Plugin {
 
   public validateAndCoerceSettings(s: SmartSlidesSettings): SmartSlidesSettings {
     const coerced: SmartSlidesSettings = { ...s };
-    if (typeof coerced.lastUsedAt !== 'number' || coerced.lastUsedAt < 0) coerced.lastUsedAt = 0;
-    if (typeof coerced.enableAnimations !== 'boolean')
-      coerced.enableAnimations = DEFAULT_SETTINGS.enableAnimations;
+    this.coerceCoreFields(coerced);
+    this.coerceThemeFields(coerced);
+    this.coerceOnboardingFields(coerced);
+    return coerced;
+  }
+
+  private coerceCoreFields(settings: SmartSlidesSettings): void {
+    if (typeof settings.lastUsedAt !== 'number' || settings.lastUsedAt < 0) settings.lastUsedAt = 0;
+    if (typeof settings.enableAnimations !== 'boolean')
+      settings.enableAnimations = DEFAULT_SETTINGS.enableAnimations;
+    if (typeof settings.maxSlides !== 'number' || !Number.isFinite(settings.maxSlides))
+      settings.maxSlides = DEFAULT_SETTINGS.maxSlides;
+    settings.maxSlides = Math.min(200, Math.max(5, Math.round(settings.maxSlides)));
+    if (typeof settings.safeMode !== 'boolean') settings.safeMode = DEFAULT_SETTINGS.safeMode;
+  }
+
+  private coerceThemeFields(settings: SmartSlidesSettings): void {
     const allowedThemes: Array<SmartSlidesSettings['defaultTheme']> = [
       'business',
       'technical',
       'academic',
       'creative',
     ];
-    if (!allowedThemes.includes(coerced.defaultTheme))
-      coerced.defaultTheme = DEFAULT_SETTINGS.defaultTheme;
-    if (typeof coerced.maxSlides !== 'number' || !Number.isFinite(coerced.maxSlides))
-      coerced.maxSlides = DEFAULT_SETTINGS.maxSlides;
-    coerced.maxSlides = Math.min(200, Math.max(5, Math.round(coerced.maxSlides)));
-    if (typeof coerced.safeMode !== 'boolean') coerced.safeMode = DEFAULT_SETTINGS.safeMode;
-    return coerced;
+    const themeIsAllowed = allowedThemes.includes(settings.defaultTheme);
+    if (!themeIsAllowed) settings.defaultTheme = DEFAULT_SETTINGS.defaultTheme;
+  }
+
+  private coerceOnboardingFields(settings: SmartSlidesSettings): void {
+    if (typeof settings.hasCompletedOnboarding !== 'boolean')
+      settings.hasCompletedOnboarding = DEFAULT_SETTINGS.hasCompletedOnboarding;
+    const versionValid =
+      typeof settings.onboardingVersion === 'number' && settings.onboardingVersion >= 0;
+    if (!versionValid) settings.onboardingVersion = DEFAULT_SETTINGS.onboardingVersion;
+  }
+
+  private async maybeShowOnboarding(): Promise<void> {
+    const shouldShow =
+      this.settings.hasCompletedOnboarding !== true ||
+      (this.settings.onboardingVersion ?? 0) < SmartSlidesPlugin.ONBOARDING_VERSION;
+    if (!shouldShow) return;
+    await this.openOnboarding();
+  }
+
+  private async openOnboarding(): Promise<void> {
+    const { OnboardingModal } = await import('./ui/OnboardingModal');
+    new OnboardingModal(this.app, async (action) => {
+      if (action === 'start') {
+        this.settings.hasCompletedOnboarding = true;
+        this.settings.onboardingVersion = SmartSlidesPlugin.ONBOARDING_VERSION;
+        await this.saveSettings();
+      }
+    }).open();
   }
 
   private async validateAndNormalizeFilename(name: string) {
