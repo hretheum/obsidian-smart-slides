@@ -1,4 +1,4 @@
-import { Plugin, Notice } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { ProgressController } from './ui/ProgressController';
 import { ProgressModal } from './ui/ProgressModal';
 import { isOk } from './types/Result';
@@ -8,12 +8,22 @@ import { Logger } from './utils/Logger';
 
 export interface SmartSlidesSettings {
   lastUsedAt: number;
+  enableAnimations: boolean;
+  defaultTheme: 'business' | 'technical' | 'academic' | 'creative';
+  maxSlides: number; // 5..200
+  safeMode: boolean;
 }
 
-const DEFAULT_SETTINGS: SmartSlidesSettings = { lastUsedAt: 0 };
+const DEFAULT_SETTINGS: SmartSlidesSettings = {
+  lastUsedAt: 0,
+  enableAnimations: true,
+  defaultTheme: 'business',
+  maxSlides: 40,
+  safeMode: true,
+};
 
 export default class SmartSlidesPlugin extends Plugin {
-  private settings: SmartSlidesSettings = DEFAULT_SETTINGS;
+  public settings: SmartSlidesSettings = DEFAULT_SETTINGS;
   private ribbonEl: HTMLElement | null = null;
   private breaker = new CircuitBreaker();
   private log = new Logger('SmartSlides');
@@ -21,6 +31,8 @@ export default class SmartSlidesPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
     await this.saveSettings();
+
+    this.addSettingTab(new SmartSlidesSettingTab(this.app, this));
 
     this.addCommand({
       id: 'smart-slides-generate-sample',
@@ -87,13 +99,34 @@ export default class SmartSlidesPlugin extends Plugin {
     this.ribbonEl = null;
   }
 
-  private async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+  public async loadSettings() {
+    const data = (await this.loadData()) ?? {};
+    const merged = { ...DEFAULT_SETTINGS, ...data } as SmartSlidesSettings;
+    this.settings = this.validateAndCoerceSettings(merged);
   }
 
-  private async saveSettings() {
-    // Intentionally unused for now; will be used in Task 1.5
+  public async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  public validateAndCoerceSettings(s: SmartSlidesSettings): SmartSlidesSettings {
+    const coerced: SmartSlidesSettings = { ...s };
+    if (typeof coerced.lastUsedAt !== 'number' || coerced.lastUsedAt < 0) coerced.lastUsedAt = 0;
+    if (typeof coerced.enableAnimations !== 'boolean')
+      coerced.enableAnimations = DEFAULT_SETTINGS.enableAnimations;
+    const allowedThemes: Array<SmartSlidesSettings['defaultTheme']> = [
+      'business',
+      'technical',
+      'academic',
+      'creative',
+    ];
+    if (!allowedThemes.includes(coerced.defaultTheme))
+      coerced.defaultTheme = DEFAULT_SETTINGS.defaultTheme;
+    if (typeof coerced.maxSlides !== 'number' || !Number.isFinite(coerced.maxSlides))
+      coerced.maxSlides = DEFAULT_SETTINGS.maxSlides;
+    coerced.maxSlides = Math.min(200, Math.max(5, Math.round(coerced.maxSlides)));
+    if (typeof coerced.safeMode !== 'boolean') coerced.safeMode = DEFAULT_SETTINGS.safeMode;
+    return coerced;
   }
 
   private async validateAndNormalizeFilename(name: string) {
@@ -107,4 +140,149 @@ export default class SmartSlidesPlugin extends Plugin {
 
 async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+class SmartSlidesSettingTab extends PluginSettingTab {
+  private plugin: SmartSlidesPlugin;
+  constructor(app: App, plugin: SmartSlidesPlugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+
+  display(): void {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl('h2', { text: 'Smart Slides Settings' });
+    const searchWrap = containerEl.createEl('div', { cls: 'smart-slides-settings-search' });
+    const searchInput = searchWrap.createEl('input', {
+      type: 'search',
+      attr: { placeholder: 'Search settings…', 'aria-label': 'Search settings' },
+    });
+    searchInput.addEventListener('input', () =>
+      this.filterSettings(containerEl, searchInput.value),
+    );
+    this.renderGeneralSection(containerEl);
+    this.renderControlsSection(containerEl);
+  }
+
+  private renderGeneralSection(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName('Enable animations')
+      .setDesc('Toggle smooth UI animations in modals and slides.')
+      .addToggle((t) => {
+        t.setValue(this.plugin.settings.enableAnimations).onChange(async (v) => {
+          this.plugin.settings.enableAnimations = Boolean(v);
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName('Default theme')
+      .setDesc('Theme preference used when composing slides.')
+      .addDropdown((d) => {
+        d.addOptions({
+          business: 'Business',
+          technical: 'Technical',
+          academic: 'Academic',
+          creative: 'Creative',
+        });
+        d.setValue(this.plugin.settings.defaultTheme);
+        d.onChange(async (v) => {
+          const value = v as SmartSlidesSettings['defaultTheme'];
+          this.plugin.settings.defaultTheme = value;
+          await this.plugin.saveSettings();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName('Max slides')
+      .setDesc('Upper bound for generated slide count (5–200).')
+      .addText((t) => {
+        t.setPlaceholder('e.g. 40');
+        t.setValue(String(this.plugin.settings.maxSlides));
+        t.onChange(async (raw) => {
+          const parsed = Number.parseInt(raw, 10);
+          const before = this.plugin.settings.maxSlides;
+          this.plugin.settings.maxSlides = Number.isFinite(parsed) ? parsed : before;
+          this.plugin.settings = this.plugin.validateAndCoerceSettings(this.plugin.settings);
+          t.setValue(String(this.plugin.settings.maxSlides));
+          await this.plugin.saveSettings();
+        });
+      })
+      .addExtraButton((b) =>
+        b
+          .setIcon('help')
+          .setTooltip('Generator will not exceed this bound; actual count depends on content.'),
+      );
+
+    new Setting(containerEl)
+      .setName('Safe mode')
+      .setDesc('Apply aggressive sanitization and validation to user inputs and generated content.')
+      .addToggle((t) => {
+        t.setValue(this.plugin.settings.safeMode).onChange(async (v) => {
+          this.plugin.settings.safeMode = Boolean(v);
+          await this.plugin.saveSettings();
+        });
+      });
+  }
+
+  private renderControlsSection(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName('Restore defaults')
+      .setDesc('Reset all settings to default values (confirmation required).')
+      .addButton((b) => {
+        b.setButtonText('Reset to defaults');
+        b.setTooltip('Revert every option to its original value');
+        b.onClick(async () => {
+          const confirmed = confirm('Reset Smart Slides settings to defaults?');
+          if (!confirmed) return;
+          this.plugin.settings = { ...DEFAULT_SETTINGS };
+          await this.plugin.saveSettings();
+          this.display();
+        });
+      });
+
+    new Setting(containerEl)
+      .setName('Export settings')
+      .setDesc('Copy current settings as JSON to clipboard.')
+      .addButton((b) => {
+        b.setButtonText('Export JSON');
+        b.setTooltip('Copy current settings to clipboard as JSON');
+        b.onClick(async () => {
+          const json = JSON.stringify(this.plugin.settings, null, 2);
+          await navigator.clipboard.writeText(json);
+          new Notice('Smart Slides settings copied to clipboard');
+        });
+      });
+
+    new Setting(containerEl)
+      .setName('Import settings')
+      .setDesc('Paste JSON to import. Invalid fields are ignored.')
+      .addTextArea((ta) => {
+        ta.setPlaceholder('{"maxSlides": 50, "defaultTheme": "technical" }');
+        ta.onChange(async (raw) => {
+          try {
+            const parsed = JSON.parse(raw);
+            const next = this.plugin.validateAndCoerceSettings({
+              ...this.plugin.settings,
+              ...parsed,
+            });
+            this.plugin.settings = next;
+            await this.plugin.saveSettings();
+          } catch {
+            // ignore parsing errors until user clicks elsewhere
+          }
+        });
+      });
+  }
+
+  private filterSettings(containerEl: HTMLElement, query: string): void {
+    const normalized = query.trim().toLowerCase();
+    const items = containerEl.querySelectorAll('.setting-item');
+    items.forEach((el) => {
+      const text = el.textContent?.toLowerCase() ?? '';
+      (el as HTMLElement).style.display =
+        normalized === '' || text.includes(normalized) ? '' : 'none';
+    });
+  }
 }
