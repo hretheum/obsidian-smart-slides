@@ -8,6 +8,7 @@ export class ProgressModal extends Modal {
   private statusEl!: HTMLDivElement;
   private cancelButtonEl!: HTMLButtonElement;
   private previewEl!: HTMLDivElement;
+  private errorEl!: HTMLDivElement;
 
   constructor(app: App, controller: ProgressController) {
     super(app);
@@ -48,6 +49,10 @@ export class ProgressModal extends Modal {
       cls: 'smart-slides-preview',
     });
 
+    this.errorEl = contentEl.createEl('div', {
+      cls: 'smart-slides-error',
+    });
+
     const controls = contentEl.createEl('div', { cls: 'smart-slides-controls' });
     this.cancelButtonEl = controls.createEl('button', {
       text: 'Cancel',
@@ -85,8 +90,11 @@ export class ProgressModal extends Modal {
       });
     }
 
-    if (update.phase === 'compose') {
-      this.previewEl.setText('Preview: composing slides…');
+    if (update.previewSnippet) this.previewEl.setText(update.previewSnippet);
+
+    if (update.message.startsWith('Error:')) {
+      this.errorEl.setText(update.message);
+      this.cancelButtonEl.setAttr('disabled', 'true');
     }
 
     if (pct >= 100 || this.controller.cancelled) {

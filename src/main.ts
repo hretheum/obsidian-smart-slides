@@ -45,7 +45,12 @@ export default class SmartSlidesPlugin extends Plugin {
             await sleep(200);
             controller.update({ percent: 45, phase: 'style', message: 'Applying styles…' });
             await sleep(200);
-            controller.update({ percent: 70, phase: 'compose', message: 'Composing slides…' });
+            controller.update({
+              percent: 70,
+              phase: 'compose',
+              message: 'Composing slides…',
+              previewSnippet: '# Title\n- point A\n- point B',
+            });
             await sleep(200);
             controller.update({
               percent: 90,

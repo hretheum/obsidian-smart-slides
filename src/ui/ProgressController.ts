@@ -12,6 +12,7 @@ export interface ProgressUpdate {
   readonly phase: ProgressPhase;
   readonly message: string;
   readonly etaMs?: number;
+  readonly previewSnippet?: string;
 }
 
 export type ProgressListener = (update: ProgressUpdate) => void;
@@ -35,6 +36,10 @@ export class ProgressController {
   cancel(): void {
     this.cancelledFlag = true;
     this.emit({ percent: this.lastPercent, phase: 'finalize', message: 'Cancelling…' });
+  }
+
+  fail(reason: string): void {
+    this.emit({ percent: this.lastPercent, phase: 'finalize', message: `Error: ${reason}` });
   }
 
   get cancelled(): boolean {
