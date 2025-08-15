@@ -8,13 +8,14 @@ module.exports = {
     'src/core/**/*.ts',
     '!src/core/index.ts',
     '!src/**/*.d.ts',
+    '!src/**/__tests__/**',
   ],
   coverageThreshold: {
     global: {
-      lines: 80,
-      statements: 80,
-      branches: 80,
-      functions: 80,
+      lines: 90,
+      statements: 90,
+      branches: 85,
+      functions: 90,
     },
   },
 };

@@ -65,6 +65,7 @@ describe('ConfigManager', () => {
     expect(loaded.ok).toBe(true);
     expect(manager.get().version).toBe(2);
     expect(manager.get().theme).toBe('light');
+    expect(manager.get().maxItems).toBe(50);
   });
 
   test('update validates, saves, and returns new config', async () => {
@@ -82,5 +83,62 @@ describe('ConfigManager', () => {
     await manager.load();
     const updated = await manager.update({ maxItems: -1 });
     expect(updated.ok).toBe(false);
+  });
+
+  test('load returns error on invalid format and preserves previous config', async () => {
+    const storage = new InMemoryConfigStorage();
+    const manager = new ConfigManager<AppConfig>(storage, { defaultConfig: DEFAULTS, migrate });
+    const before = manager.get();
+    await storage.write('not-an-object' as any);
+    const loaded = await manager.load();
+    expect(loaded.ok).toBe(false);
+    expect(manager.get()).toEqual(before);
+  });
+
+  test('load returns error on unsupported version and keeps current config', async () => {
+    const storage = new InMemoryConfigStorage();
+    await storage.write({ version: 999, featureX: true });
+    const manager = new ConfigManager<AppConfig>(storage, { defaultConfig: DEFAULTS, migrate });
+    const loaded = await manager.load();
+    expect(loaded.ok).toBe(false);
+    expect(manager.get()).toEqual({ ...DEFAULTS });
+  });
+
+  test('update fails when storage write throws (save error path)', async () => {
+    const throwingStorage: InMemoryConfigStorage & { write: (d: unknown) => Promise<void> } =
+      new InMemoryConfigStorage();
+    // monkey-patch write to throw
+    // @ts-expect-error override for test
+    throwingStorage.write = async () => {
+      throw new Error('disk full');
+    };
+    const manager = new ConfigManager<AppConfig>(throwingStorage, {
+      defaultConfig: DEFAULTS,
+      migrate,
+    });
+    await manager.load();
+    const res = await manager.update({ maxItems: 60 });
+    expect(res.ok).toBe(false);
+  });
+
+  test('applies envOverrides provided as object and as function', async () => {
+    const storage = new InMemoryConfigStorage();
+    const managerObj = new ConfigManager<AppConfig>(storage, {
+      defaultConfig: DEFAULTS,
+      migrate,
+      envOverrides: { theme: 'dark' },
+    });
+    await managerObj.load();
+    expect(managerObj.get().theme).toBe('dark');
+
+    const managerFn = new ConfigManager<AppConfig>(new InMemoryConfigStorage(), {
+      defaultConfig: DEFAULTS,
+      migrate,
+      environment: 'production',
+      envOverrides: (env) => (env === 'production' ? { featureX: true, maxItems: 42 } : {}),
+    });
+    await managerFn.load();
+    expect(managerFn.get().featureX).toBe(true);
+    expect(managerFn.get().maxItems).toBe(42);
   });
 });
