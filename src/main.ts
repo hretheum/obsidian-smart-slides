@@ -1,4 +1,6 @@
 import { Plugin, Notice } from 'obsidian';
+import { ProgressController } from './ui/ProgressController';
+import { ProgressModal } from './ui/ProgressModal';
 import { isOk } from './types/Result';
 import { CircuitBreaker } from './utils/CircuitBreaker';
 import { withRetry } from './utils/Retry';
@@ -31,9 +33,32 @@ export default class SmartSlidesPlugin extends Plugin {
           new Notice(`Invalid filename: ${validated.error.message}`);
           return;
         }
+        const controller = new ProgressController();
+        const modal = new ProgressModal(this.app, controller);
+        modal.open();
+        // Simulate generation with staged updates
         await this.breaker.execute(async () => {
           await withRetry(async () => {
-            // Placeholder future IO; currently just success path
+            controller.update({ percent: 5, phase: 'analysis', message: 'Analyzing content…' });
+            await sleep(200);
+            controller.update({ percent: 25, phase: 'layout', message: 'Selecting layouts…' });
+            await sleep(200);
+            controller.update({ percent: 45, phase: 'style', message: 'Applying styles…' });
+            await sleep(200);
+            controller.update({
+              percent: 70,
+              phase: 'compose',
+              message: 'Composing slides…',
+              previewSnippet: '# Title\n- point A\n- point B',
+            });
+            await sleep(200);
+            controller.update({
+              percent: 90,
+              phase: 'quality',
+              message: 'Running quality checks…',
+            });
+            await sleep(200);
+            controller.update({ percent: 100, phase: 'finalize', message: 'Finalizing…' });
             this.log.info(`Validated path: ${validated.value.path}`);
           });
         });
@@ -78,4 +103,8 @@ export default class SmartSlidesPlugin extends Plugin {
     if (!safe.ok) return safe;
     return normalizeVaultRelativePath(`${safe.value}.md`);
   }
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
 }

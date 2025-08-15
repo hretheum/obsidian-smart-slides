@@ -1,3 +1,52 @@
+.smart-slides-progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background: var(--background-modifier-border);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.smart-slides-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--interactive-accent);
+  transition: width 120ms ease-out;
+}
+
+.smart-slides-progress-text {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.smart-slides-status {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.smart-slides-controls {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.smart-slides-error {
+  margin-top: 8px;
+  color: var(--text-error);
+}
+
+.smart-slides-preview {
+  margin-top: 8px;
+  max-height: 120px;
+  overflow: auto;
+  padding: 6px;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
 /* Smart Slides Plugin Styles */
 
 /* Prompt Modal */
